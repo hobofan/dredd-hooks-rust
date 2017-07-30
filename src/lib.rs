@@ -85,6 +85,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for LineProto {
 
 pub type Transaction = serde_json::map::Map<String, Json>;
 
+/// Server that allows you to register hooks with the dredd test runner.
 #[derive(Clone)]
 pub struct HooksServer {
     hooks_before_all: Arc<RwLock<Vec<Box<FnMut(Vec<Transaction>) -> Vec<Transaction> + Send + Sync>>>>,
@@ -98,6 +99,7 @@ pub struct HooksServer {
 }
 
 impl HooksServer {
+    /// Create a new instance.
     pub fn new() -> Self {
         Self {
             hooks_before_all: Arc::new(RwLock::new(Vec::new())),
@@ -273,12 +275,19 @@ impl Service for HooksServer {
                 EventType::AfterEach => {
                     let mut event: SingleTransaction = serde_json::from_str(&req).unwrap();
                     event = match event.event {
-                        EventType::BeforeEach => self.run_hooks_before_each(event),
-                        EventType::Before => self.run_hooks_before(event),
-                        EventType::BeforeEachValidation => self.run_hooks_before_each_validation(event),
-                        EventType::BeforeValidation => self.run_hooks_before_validation(event),
-                        EventType::After => self.run_hooks_after(event),
-                        EventType::AfterEach => self.run_hooks_after_each(event),
+                        // There isn't really a `before`, `beforeValidation` or `after` event
+                        EventType::BeforeEach => {
+                            event = self.run_hooks_before_each(event);
+                            self.run_hooks_before(event)
+                        },
+                        EventType::BeforeEachValidation => {
+                            event = self.run_hooks_before_each_validation(event);
+                            self.run_hooks_before_validation(event)
+                        },
+                        EventType::AfterEach => {
+                            event = self.run_hooks_after(event);
+                            self.run_hooks_after_each(event)
+                        },
                         _ => unreachable!(),
                     };
                     serde_json::to_string(&event).unwrap()
@@ -293,6 +302,9 @@ impl Service for HooksServer {
     }
 }
 
+/// Server that handles the integration between dredd and the individual hook servers.
+///
+/// Usually doesn't have to be used directly. **Use the `dredd-hooks-rust` binary invoked by dredd instead**.
 #[derive(Clone)]
 pub struct IntegrationServer {
     next_port: usize,
