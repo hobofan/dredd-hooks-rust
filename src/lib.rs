@@ -1,3 +1,5 @@
+//!
+
 #[macro_use] extern crate serde_derive;
 extern crate bufstream;
 extern crate bytes;
@@ -18,7 +20,6 @@ use std::io;
 use std::str;
 use std::sync::{RwLock, Arc};
 
-
 use chan_signal::Signal;
 use bufstream::BufStream;
 use bytes::BytesMut;
@@ -31,7 +32,7 @@ use tokio_service::Service;
 use futures::{future, Future, BoxFuture};
 use tokio_proto::TcpServer;
 
-pub struct LineCodec;
+struct LineCodec;
 
 impl Decoder for LineCodec {
     type Item = String;
@@ -68,7 +69,7 @@ impl Encoder for LineCodec {
     }
 }
 
-pub struct LineProto;
+struct LineProto;
 
 impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for LineProto {
     type Request = String;
@@ -82,7 +83,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for LineProto {
     }
 }
 
-type Transaction = serde_json::map::Map<String, Json>;
+pub type Transaction = serde_json::map::Map<String, Json>;
 
 #[derive(Clone)]
 pub struct HooksServer {
@@ -90,8 +91,8 @@ pub struct HooksServer {
     hooks_before_each: Arc<RwLock<Vec<Box<FnMut(Transaction) -> Transaction + Send + Sync>>>>,
     hooks_before: HashMap<String, Arc<RwLock<Vec<Box<FnMut(Transaction) -> Transaction + Send + Sync>>>>>,
     hooks_before_each_validation: Arc<RwLock<Vec<Box<FnMut(Transaction) -> Transaction + Send + Sync>>>>,
-    // // TODO: BeforeValidation
-    // // TODO: After
+    hooks_before_validation: HashMap<String, Arc<RwLock<Vec<Box<FnMut(Transaction) -> Transaction + Send + Sync>>>>>,
+    hooks_after: HashMap<String, Arc<RwLock<Vec<Box<FnMut(Transaction) -> Transaction + Send + Sync>>>>>,
     hooks_after_each: Arc<RwLock<Vec<Box<FnMut(Transaction) -> Transaction + Send + Sync>>>>,
     hooks_after_all: Arc<RwLock<Vec<Box<FnMut(Vec<Transaction>) -> Vec<Transaction> + Send + Sync>>>>,
 }
@@ -103,6 +104,8 @@ impl HooksServer {
             hooks_before_each: Arc::new(RwLock::new(Vec::new())),
             hooks_before: HashMap::new(),
             hooks_before_each_validation: Arc::new(RwLock::new(Vec::new())),
+            hooks_before_validation: HashMap::new(),
+            hooks_after: HashMap::new(),
             hooks_after_each: Arc::new(RwLock::new(Vec::new())),
             hooks_after_all: Arc::new(RwLock::new(Vec::new())),
         }
@@ -158,6 +161,28 @@ impl HooksServer {
         transaction
     }
 
+    fn run_hooks_before_validation(&self, mut transaction: SingleTransaction) -> SingleTransaction {
+        if let Some(hooks) = self.hooks_before_validation.get(transaction.data["name"].as_str().unwrap()) {
+            for mut hook in hooks.write().unwrap().iter_mut() {
+                transaction.data = hook(transaction.data);
+            }
+            transaction
+        } else {
+            transaction
+        }
+    }
+
+    fn run_hooks_after(&self, mut transaction: SingleTransaction) -> SingleTransaction {
+        if let Some(hooks) = self.hooks_after.get(transaction.data["name"].as_str().unwrap()) {
+            for mut hook in hooks.write().unwrap().iter_mut() {
+                transaction.data = hook(transaction.data);
+            }
+            transaction
+        } else {
+            transaction
+        }
+    }
+
     fn run_hooks_after_each(&self, mut transaction: SingleTransaction) -> SingleTransaction {
         for mut hook in &mut self.hooks_after_each.write().unwrap().iter_mut() {
             transaction.data = hook(transaction.data);
@@ -182,7 +207,7 @@ impl HooksServer {
         self.hooks_before_each.write().unwrap().push(closure);
     }
 
-    /// Register a hook that will run before each indiviual transactions.
+    /// Register a hook that will run before a specific transactions.
     pub fn before<T: Into<String>>(&mut self, name: T, closure: Box<FnMut(Transaction) -> Transaction + Send + Sync>) {
         let old_hooks = self.hooks_before.entry(name.into()).or_insert(Arc::new(RwLock::new(Vec::new())));
         old_hooks.write().unwrap().push(closure);
@@ -191,6 +216,18 @@ impl HooksServer {
     /// Register a hook that will run before the validation of each indiviual transactions.
     pub fn before_each_validation(&mut self, closure: Box<FnMut(Transaction) -> Transaction + Send + Sync>) {
         self.hooks_before_each_validation.write().unwrap().push(closure);
+    }
+
+    /// Register a hook that will run before a specific transactions will be validated.
+    pub fn before_validation<T: Into<String>>(&mut self, name: T, closure: Box<FnMut(Transaction) -> Transaction + Send + Sync>) {
+        let old_hooks = self.hooks_before_validation.entry(name.into()).or_insert(Arc::new(RwLock::new(Vec::new())));
+        old_hooks.write().unwrap().push(closure);
+    }
+
+    /// Register a hook that will run after a specific transactions.
+    pub fn after<T: Into<String>>(&mut self, name: T, closure: Box<FnMut(Transaction) -> Transaction + Send + Sync>) {
+        let old_hooks = self.hooks_after.entry(name.into()).or_insert(Arc::new(RwLock::new(Vec::new())));
+        old_hooks.write().unwrap().push(closure);
     }
 
     /// Register a hook that will run after each indiviual transactions.
@@ -231,18 +268,21 @@ impl Service for HooksServer {
                 EventType::BeforeEach |
                 EventType::Before |
                 EventType::BeforeEachValidation |
+                EventType::BeforeValidation |
+                EventType::After |
                 EventType::AfterEach => {
                     let mut event: SingleTransaction = serde_json::from_str(&req).unwrap();
                     event = match event.event {
                         EventType::BeforeEach => self.run_hooks_before_each(event),
                         EventType::Before => self.run_hooks_before(event),
                         EventType::BeforeEachValidation => self.run_hooks_before_each_validation(event),
+                        EventType::BeforeValidation => self.run_hooks_before_validation(event),
+                        EventType::After => self.run_hooks_after(event),
                         EventType::AfterEach => self.run_hooks_after_each(event),
                         _ => unreachable!(),
                     };
                     serde_json::to_string(&event).unwrap()
                 }
-                _ => unimplemented!(),
             };
 
             res = response_event;
