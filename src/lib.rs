@@ -1,11 +1,69 @@
+//! Following this is a short example showcasing Dredd tests running against an `iron` server.
 //!
+//! The name of the project in this example is assumed to be `dredd-rust-test`:
+//!
+//! `test.apib`:
+//!
+//! ```apib,ignore
+//! # My Api
+//! ## GET /message
+//! + Response 200 (text/plain)
+//!     Hello World!
+//! ```
+//!
+//! `main.rs`:
+//!
+//! ```rust,ignore
+//! extern crate iron;
+//! extern crate router;
+//! extern crate dredd_hooks;
+//!
+//! use iron::prelude::*;
+//! use router::Router;
+//! use dredd_hooks::{HooksServer};
+//!
+//! // HTTP endpoint
+//! fn endpoint(_: &mut Request) -> IronResult<Response> {
+//!     Ok(Response::with((iron::status::Ok, "Hello World!\n\n")))
+//! }
+//!
+//! fn main() {
+//!     let mut hooks = HooksServer::new();
+//!     // Start the server before any of the tests are running.
+//!     hooks.before_all(Box::new(|tr| {
+//!         ::std::thread::spawn(move || {
+//!             let mut router = Router::new();
+//!             router.get("/message", endpoint, "endpoint");
+//!
+//!             Iron::new(router).http("127.0.0.1:3000").unwrap();
+//!         });
+//!         tr
+//!     }));
+//!     // Execute a hook before a specific test.
+//!     hooks.before("/message > GET", Box::new(|mut tr| {
+//!         // Set the skip flag on this test.
+//!         // Comment out the next line and you should see a passing test.
+//!         tr.insert("skip".to_owned(), true.into());
+//!
+//!         tr
+//!     }));
+//!     HooksServer::start_from_env(hooks);
+//! }
+//! ```
+//!
+//! Run the command:
+//!
+//! ```bash
+//! cargo build && dredd ./test.apib http://127.0.0.1:3000 --language=dredd-hooks-rust --hookfiles=target/debug/dredd-rust-test
+//! ```
+//!
+//! You should now see Dredd trying to run the tests against the binary that was just compiled, but actually skipping the single test it tries to run because we told Dredd to do so via a `before` hook.
 
 #[macro_use] extern crate serde_derive;
 extern crate bufstream;
 extern crate bytes;
 extern crate futures;
 extern crate serde_json;
-extern crate tokio_core;
 extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
