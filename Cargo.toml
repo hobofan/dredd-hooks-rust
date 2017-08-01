@@ -8,6 +8,7 @@ repository = "https://github.com/hobofan/dredd-hooks-rust"
 keywords = ["testing", "dredd"]
 categories = ["web-programming", "development-tools", "api-bindings"]
 license = "MIT OR Apache-2.0"
+exclude = ["test-suite/**/*"]
 
 [dependencies]
 bufstream = "0.1.3"

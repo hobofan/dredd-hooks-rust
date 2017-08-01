@@ -482,8 +482,8 @@ impl Service for IntegrationServer {
 
             res = String::new();
             outgoing.read_line(&mut res).unwrap();
+            res.pop();
         }
-        res.pop();
 
         future::ok(res).boxed()
     }

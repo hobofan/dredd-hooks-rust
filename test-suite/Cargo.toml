@@ -1,0 +1,7 @@
+[package]
+name = "dredd-hooks-test-suite"
+version = "0.1.0"
+authors = ["Maximilian Goisser <goisser94@gmail.com>"]
+
+[dependencies]
+dredd-hooks = { path = ".." }
