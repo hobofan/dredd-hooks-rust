@@ -40,7 +40,7 @@ To start testing your Rust project with Dredd, just add `dredd-hooks` to your `C
 
 ```toml
 [dependencies]
-dredd-hooks = "0.1.0"
+dredd-hooks = "0.2.0"
 ```
 
 Or if you have [cargo-edit][cargo-edit] installed you can just run this on the command line:
