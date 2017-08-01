@@ -61,6 +61,14 @@
 
 #![allow(type_complexity)]
 
+#![allow(unknown_lints)]
+#![warn(missing_docs,
+        missing_debug_implementations, missing_copy_implementations,
+        trivial_casts, trivial_numeric_casts,
+        unsafe_code,
+        unstable_features,
+        unused_qualifications)]
+
 #[macro_use] extern crate serde_derive;
 extern crate bufstream;
 extern crate bytes;
@@ -72,11 +80,12 @@ extern crate tokio_service;
 extern crate chan_signal;
 
 use std::collections::HashMap;
+use std::fmt;
+use std::io;
 use std::io::{BufRead, Write};
 use std::net::{TcpStream as StdTcpStream};
 use std::net::SocketAddr;
 use std::process::{Command, Child};
-use std::io;
 use std::str;
 use std::sync::{RwLock, Arc};
 
@@ -143,6 +152,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for LineProto {
     }
 }
 
+/// A Dredd transaction parsed from JSON. Altering it allows for comunication with Dredd.
 pub type Transaction = serde_json::map::Map<String, Json>;
 
 /// Server that allows you to register hooks with the dredd test runner.
@@ -309,6 +319,30 @@ impl HooksServer {
     }
 }
 
+impl fmt::Debug for HooksServer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let len_hooks_before_all = self.hooks_before_all.read().unwrap().len();
+        let len_hooks_before_each = self.hooks_before_each.read().unwrap().len();
+        let len_hooks_before = self.hooks_before.len();
+        let len_hooks_before_each_validation = self.hooks_before_each_validation.read().unwrap().len();
+        let len_hooks_before_validation = self.hooks_before_validation.len();
+        let len_hooks_after = self.hooks_after.len();
+        let len_hooks_after_each = self.hooks_after_each.read().unwrap().len();
+        let len_hooks_after_all = self.hooks_after_all.read().unwrap().len();
+
+        write!(f, "HooksServer {{ hooks_before_all: {}, hooks_before_each: {}, hooks_before: {}, hooks_before_each_validation: {}, hooks_before_validation: {}, hooks_before_after: {}, hooks_before_after_each: {}, hooks_before_after_all: {} }}",
+            len_hooks_before_all,
+            len_hooks_before_each,
+            len_hooks_before,
+            len_hooks_before_each_validation,
+            len_hooks_before_validation,
+            len_hooks_after,
+            len_hooks_after_each,
+            len_hooks_after_all,
+        )
+    }
+}
+
 impl Service for HooksServer {
     type Request = String;
     type Response = String;
@@ -371,13 +405,14 @@ impl Service for HooksServer {
 /// Server that handles the integration between dredd and the individual hook servers.
 ///
 /// Usually doesn't have to be used directly. **Use the `dredd-hooks-rust` binary invoked by dredd instead**.
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct IntegrationServer {
     next_port: usize,
-    pub runners: Arc<RwLock<Vec<(usize, Child)>>>
+    runners: Arc<RwLock<Vec<(usize, Child)>>>
 }
 
 impl IntegrationServer {
+    /// Create a new instance.
     pub fn new() -> Self {
         Self {
             next_port: 61_322,
@@ -392,7 +427,7 @@ impl IntegrationServer {
         .expect(&format!("failed to start {}", hookfile))
     }
 
-    pub fn setup_hooks(&mut self, hookfiles: Vec<String>) {
+    fn setup_hooks(&mut self, hookfiles: Vec<String>) {
         for hookfile in hookfiles {
             let child = Self::run_hookfile(hookfile, self.next_port);
             self.runners.write().unwrap().push((self.next_port, child));
@@ -400,6 +435,7 @@ impl IntegrationServer {
         }
     }
 
+    /// Start the provided IntegrationServer, and start the provided hookfiles as child processes.
     pub fn start(mut srv: IntegrationServer, hookfiles: Vec<String>) {
         srv.setup_hooks(hookfiles);
 
@@ -454,14 +490,14 @@ impl Service for IntegrationServer {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct MultiTransaction {
+struct MultiTransaction {
     event: EventType,
     uuid: String,
     data: Vec<Transaction>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SingleTransaction {
+struct SingleTransaction {
     event: EventType,
     uuid: String,
     data: Transaction,
