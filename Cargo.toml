@@ -2,7 +2,7 @@
 authors = ["Maximilian Goisser <goisser94@gmail.com>"]
 name = "dredd-hooks"
 description = "Dredd HTTP API testing integration for Rust"
-version = "0.2.0"
+version = "0.2.1"
 documentation = "https://docs.rs/dredd-hooks"
 repository = "https://github.com/hobofan/dredd-hooks-rust"
 keywords = ["testing", "dredd"]
