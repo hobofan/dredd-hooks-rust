@@ -1,4 +1,4 @@
-# dredd-hooks-rust • Dredd HTTP API testing integration for Rust [![Crates.io](https://img.shields.io/crates/v/dredd-hooks.svg)]() [![docs.rs](https://docs.rs/dredd-hooks/badge.svg)]() [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)]()
+# dredd-hooks-rust • Dredd HTTP API testing integration for Rust [![Crates.io](https://img.shields.io/crates/v/dredd-hooks.svg)](https://crates.io/crates/dredd-hooks) [![docs.rs](https://docs.rs/dredd-hooks/badge.svg)](https://docs.rs/dredd-hooks) [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)]()
 
 This package contains a Rust Dredd hook handler which provides a bridge between the [Dredd API Testing Framework](http://dredd.readthedocs.org/en/latest/)
  and Rust environment to ease implementation of testing hooks provided by [Dredd](http://dredd.readthedocs.org/en/latest/). Write Dredd hooks in Rust to glue together [API Blueprint](https://apiblueprint.org/) with your Rust project.
