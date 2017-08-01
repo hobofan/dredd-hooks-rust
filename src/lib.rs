@@ -59,6 +59,8 @@
 //!
 //! You should now see Dredd trying to run the tests against the binary that was just compiled, but actually skipping the single test it tries to run because we told Dredd to do so via a `before` hook.
 
+#![allow(type_complexity)]
+
 #[macro_use] extern crate serde_derive;
 extern crate bufstream;
 extern crate bytes;
@@ -144,7 +146,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for LineProto {
 pub type Transaction = serde_json::map::Map<String, Json>;
 
 /// Server that allows you to register hooks with the dredd test runner.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct HooksServer {
     hooks_before_all: Arc<RwLock<Vec<Box<FnMut(Vec<Transaction>) -> Vec<Transaction> + Send + Sync>>>>,
     hooks_before_each: Arc<RwLock<Vec<Box<FnMut(Transaction) -> Transaction + Send + Sync>>>>,
@@ -269,7 +271,9 @@ impl HooksServer {
 
     /// Register a hook that will run before a specific transactions.
     pub fn before<T: Into<String>>(&mut self, name: T, closure: Box<FnMut(Transaction) -> Transaction + Send + Sync>) {
-        let old_hooks = self.hooks_before.entry(name.into()).or_insert(Arc::new(RwLock::new(Vec::new())));
+        let old_hooks = self.hooks_before
+            .entry(name.into())
+            .or_insert_with(|| Arc::new(RwLock::new(Vec::new())));
         old_hooks.write().unwrap().push(closure);
     }
 
@@ -280,13 +284,17 @@ impl HooksServer {
 
     /// Register a hook that will run before a specific transactions will be validated.
     pub fn before_validation<T: Into<String>>(&mut self, name: T, closure: Box<FnMut(Transaction) -> Transaction + Send + Sync>) {
-        let old_hooks = self.hooks_before_validation.entry(name.into()).or_insert(Arc::new(RwLock::new(Vec::new())));
+        let old_hooks = self.hooks_before_validation
+            .entry(name.into())
+            .or_insert_with(|| Arc::new(RwLock::new(Vec::new())));
         old_hooks.write().unwrap().push(closure);
     }
 
     /// Register a hook that will run after a specific transactions.
     pub fn after<T: Into<String>>(&mut self, name: T, closure: Box<FnMut(Transaction) -> Transaction + Send + Sync>) {
-        let old_hooks = self.hooks_after.entry(name.into()).or_insert(Arc::new(RwLock::new(Vec::new())));
+        let old_hooks = self.hooks_after
+            .entry(name.into())
+            .or_insert_with(|| Arc::new(RwLock::new(Vec::new())));
         old_hooks.write().unwrap().push(closure);
     }
 
@@ -363,7 +371,7 @@ impl Service for HooksServer {
 /// Server that handles the integration between dredd and the individual hook servers.
 ///
 /// Usually doesn't have to be used directly. **Use the `dredd-hooks-rust` binary invoked by dredd instead**.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct IntegrationServer {
     next_port: usize,
     pub runners: Arc<RwLock<Vec<(usize, Child)>>>
@@ -372,7 +380,7 @@ pub struct IntegrationServer {
 impl IntegrationServer {
     pub fn new() -> Self {
         Self {
-            next_port: 61322,
+            next_port: 61_322,
             runners: Arc::new(RwLock::new(Vec::new())),
         }
     }
@@ -399,7 +407,7 @@ impl IntegrationServer {
         // An alternative would be some kind of check if we can open a connection to all the runners.
         ::std::thread::sleep(::std::time::Duration::from_millis(100));
 
-        let port = 61321;
+        let port = 61_321;
         let address = SocketAddr::new("127.0.0.1".parse().unwrap(), port as u16);
 
         let server = TcpServer::new(LineProto, address);
@@ -432,8 +440,8 @@ impl Service for IntegrationServer {
                 .expect(&format!("could not connect to port {}", port));
             let mut outgoing = BufStream::new(outgoing_stream);
 
-            outgoing.write(res.as_bytes()).unwrap();
-            outgoing.write("\n".as_bytes()).unwrap();
+            outgoing.write_all(res.as_bytes()).unwrap();
+            outgoing.write_all(b"\n").unwrap();
             outgoing.flush().unwrap();
 
             res = String::new();
