@@ -8,7 +8,7 @@ keywords = ["testing", "dredd"]
 license = "MIT OR Apache-2.0"
 name = "dredd-hooks"
 repository = "https://github.com/hobofan/dredd-hooks-rust"
-version = "0.2.1"
+version = "0.3.0"
 
 [[bin]]
 name = "dredd-hooks-rust"
