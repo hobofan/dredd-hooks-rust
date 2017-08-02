@@ -29,6 +29,7 @@ npm install -g dredd
 In order for the Dredd CLI to be able to interface with your test binaries, you need to have the `dredd-hooks-rust` binary installed, which you can get by running:
 
 ```bash
+# This will install both `dredd-hooks-rust` and `cargo-dredd`
 cargo install dredd-hooks
 ```
 
@@ -50,7 +51,7 @@ cargo add dredd-hooks
 
 [cargo-edit]: https://github.com/killercup/cargo-edit
 
-## Usage example
+## Quickstart example
 
 Following this is a short example showcasing Dredd tests running against an `iron` server.
 
@@ -110,6 +111,31 @@ cargo build && dredd ./test.apib http://127.0.0.1:3000 --language=dredd-hooks-ru
 
 You should now see Dredd trying to run the tests against the binary that was just compiled, but actually skipping the single test it tries to run because we told Dredd to do so via a `before` hook.
 
+## Project setup
+
+The quickstart example above assumes that the hookfile is compiled as a `bin` target.
+However, in most projects, you will probably want to have a more robust setup that looks like this:
+
+`Cargo.toml`:
+
+```toml
+[[test]]
+name = "dredd_test_hooks"
+path = "tests/dredd/hooks.rs"
+test = false
+harness = false
+
+[package.metadata.dredd_hooks]
+hook_targets = ["dredd_test_hooks"]
+```
+
+Setting the `test` value to `false`, is needed so that our blocking hookserver doesn't interfere with the other tests when running `cargo test`.
+Setting the `harness` to `false` will result in the test binary being compiled without a test harness, because we already have `dredd` as our test harness.
+
+Finally the values under `package.metadata.dredd_hooks` give us some additional metadata about our test setup, which allows us to use the `cargo dredd` command to simplify the invocation:
+```
+cargo dredd ./test.apib http://127.0.0.1:3000
+```
 
 ## License
 
