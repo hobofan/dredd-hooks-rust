@@ -1,0 +1,23 @@
+language: rust
+
+rust: stable
+
+os:
+  - linux
+
+sudo: false
+
+env:
+ global:
+   - RUST_BACKTRACE=1
+
+before_install:
+  - nvm install v6.9.2 && nvm use v6.9.2
+  - npm install -g dredd --no-optional
+  - cd test-suite && bundle install
+
+script:
+  - ./run.sh
+
+notifications:
+  email: false
