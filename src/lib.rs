@@ -441,7 +441,7 @@ impl IntegrationServer {
 
         // HACK: short waiting time; This is apparently recommended by dredd and the other language implementations do the same thing
         // An alternative would be some kind of check if we can open a connection to all the runners.
-        ::std::thread::sleep(::std::time::Duration::from_millis(100));
+        ::std::thread::sleep(::std::time::Duration::from_millis(200));
 
         let port = 61_321;
         let address = SocketAddr::new("127.0.0.1".parse().unwrap(), port as u16);

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-cargo build --manifest-path ../Cargo.toml
+cargo build --manifest-path ../Cargo.toml --features binaries
 cargo build
 
 # working directory is tmp/aruba
 export PATH=../../../target/debug:$PATH # for dredd-hooks-rust
-# export PATH=../../target/debug:$PATH # for test binaries
+export PATH=../target/debug:$PATH # for test binaries
 
 # Individual files to run
 # bundle exec cucumber features/execution_order.feature
